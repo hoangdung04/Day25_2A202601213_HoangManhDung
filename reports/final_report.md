@@ -1,61 +1,4 @@
-from __future__ import annotations
-
-import argparse
-import json
-from pathlib import Path
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate final reliability lab report.")
-    parser.add_argument("--metrics", default="reports/metrics.json")
-    parser.add_argument("--metrics-no-cache", default="reports/metrics_no_cache.json")
-    parser.add_argument("--metrics-redis", default="reports/metrics_redis.json")
-    parser.add_argument("--out", default="reports/final_report.md")
-    args = parser.parse_args()
-
-    metrics_mem = json.loads(Path(args.metrics).read_text()) if Path(args.metrics).exists() else {}
-    metrics_nc = json.loads(Path(args.metrics_no_cache).read_text()) if Path(args.metrics_no_cache).exists() else {}
-    metrics_red = json.loads(Path(args.metrics_redis).read_text()) if Path(args.metrics_redis).exists() else {}
-
-    # Extract values with fallbacks
-    avail_mem = metrics_mem.get("availability", 0.99)
-    err_mem = metrics_mem.get("error_rate", 0.01)
-    p50_mem = metrics_mem.get("latency_p50_ms", 275.45)
-    p95_mem = metrics_mem.get("latency_p95_ms", 316.61)
-    p99_mem = metrics_mem.get("latency_p99_ms", 319.26)
-    fb_mem = metrics_mem.get("fallback_success_rate", 0.9605)
-    hit_mem = metrics_mem.get("cache_hit_rate", 0.6467)
-    cost_mem = metrics_mem.get("estimated_cost", 0.041398)
-    saved_mem = metrics_mem.get("estimated_cost_saved", 0.194)
-    cb_open_mem = metrics_mem.get("circuit_open_count", 8)
-    rec_mem = metrics_mem.get("recovery_time_ms", 2455.42)
-
-    p50_nc = metrics_nc.get("latency_p50_ms", 273.16)
-    p95_nc = metrics_nc.get("latency_p95_ms", 315.45)
-    cost_nc = metrics_nc.get("estimated_cost", 0.125198)
-    hit_nc = metrics_nc.get("cache_hit_rate", 0.0)
-    saved_nc = metrics_nc.get("estimated_cost_saved", 0.0)
-
-    avail_red = metrics_red.get("availability", 0.9967)
-    p50_red = metrics_red.get("latency_p50_ms", 284.52)
-    p95_red = metrics_red.get("latency_p95_ms", 315.67)
-    p99_red = metrics_red.get("latency_p99_ms", 318.95)
-    hit_red = metrics_red.get("cache_hit_rate", 0.6867)
-    cost_red = metrics_red.get("estimated_cost", 0.038874)
-    cb_open_red = metrics_red.get("circuit_open_count", 9)
-    rec_red = metrics_red.get("recovery_time_ms", 2355.29)
-
-    delta_p50 = p50_mem - p50_nc
-    delta_p95 = p95_mem - p95_nc
-    delta_cost = cost_mem - cost_nc
-    delta_cost_pct = (delta_cost / cost_nc * 100) if cost_nc > 0 else 0.0
-    delta_hit = (hit_mem - hit_nc) * 100
-    delta_saved = saved_mem - saved_nc
-
-    rec_mem_str = f"{rec_mem:.2f} ms" if rec_mem is not None else "N/A"
-    rec_red_str = f"{rec_red:.2f} ms" if rec_red is not None else "N/A"
-
-    report_content = f"""# Day 25 Reliability Report
+# Day 25 Reliability Report
 
 ## 1. Architecture summary
 
@@ -137,11 +80,11 @@ Target Service Level Objectives (SLOs) evaluated against the in-memory baseline 
 
 | SLI | SLO Target | Actual Value | Met? |
 |---|---|---:|:---:|
-| **Availability** | >= 99% | {avail_mem * 100:.2f}% | YES |
-| **Latency P95** | < 2500 ms | {p95_mem:.2f} ms | YES |
-| **Fallback success rate** | >= 95% | {fb_mem * 100:.2f}% | YES |
-| **Cache hit rate** | >= 10% | {hit_mem * 100:.2f}% | YES |
-| **Recovery time** | < 5000 ms | {rec_mem_str} | YES |
+| **Availability** | >= 99% | 99.33% | YES |
+| **Latency P95** | < 2500 ms | 319.43 ms | YES |
+| **Fallback success rate** | >= 95% | 97.26% | YES |
+| **Cache hit rate** | >= 10% | 65.33% | YES |
+| **Recovery time** | < 5000 ms | 2200.19 ms | YES |
 
 ---
 
@@ -151,18 +94,18 @@ Summary of actual metrics from `reports/metrics.json` (300 total requests across
 
 | Metric | Value | Description |
 |---|---:|---|
-| `total_requests` | `{metrics_mem.get("total_requests", 300)}` | Total requests processed across all simulation scenarios |
-| `availability` | `{avail_mem * 100:.2f}%` | Percentage of requests successfully answered (cache + primary + fallback) |
-| `error_rate` | `{err_mem * 100:.2f}%` | Percentage of requests falling through to static fallback |
-| `latency_p50_ms` | `{p50_mem:.2f} ms` | Median response latency across all requests |
-| `latency_p95_ms` | `{p95_mem:.2f} ms` | 95th percentile latency |
-| `latency_p99_ms` | `{p99_mem:.2f} ms` | 99th percentile peak latency |
-| `fallback_success_rate` | `{fb_mem * 100:.2f}%` | Success rate of backup provider invocations when primary failed |
-| `cache_hit_rate` | `{hit_mem * 100:.2f}%` | Percentage of queries resolved directly from cache |
-| `circuit_open_count` | `{cb_open_mem}` | Total count of circuit breaker transitions to OPEN |
-| `recovery_time_ms` | `{rec_mem_str}` | Average duration from OPEN transition to CLOSED recovery |
-| `estimated_cost` | `${cost_mem:.6f}` | Total simulated provider cost billed for generated tokens |
-| `estimated_cost_saved` | `${saved_mem:.6f}` | Heuristic savings ({int(saved_mem / 0.001 if saved_mem else 0)} cache hits × $0.001 fixed heuristic) |
+| `total_requests` | `300` | Total requests processed across all simulation scenarios |
+| `availability` | `99.33%` | Percentage of requests successfully answered (cache + primary + fallback) |
+| `error_rate` | `0.67%` | Percentage of requests falling through to static fallback |
+| `latency_p50_ms` | `278.42 ms` | Median response latency across all requests |
+| `latency_p95_ms` | `319.43 ms` | 95th percentile latency |
+| `latency_p99_ms` | `319.82 ms` | 99th percentile peak latency |
+| `fallback_success_rate` | `97.26%` | Success rate of backup provider invocations when primary failed |
+| `cache_hit_rate` | `65.33%` | Percentage of queries resolved directly from cache |
+| `circuit_open_count` | `9` | Total count of circuit breaker transitions to OPEN |
+| `recovery_time_ms` | `2200.19 ms` | Average duration from OPEN transition to CLOSED recovery |
+| `estimated_cost` | `$0.041626` | Total simulated provider cost billed for generated tokens |
+| `estimated_cost_saved` | `$0.196000` | Heuristic savings (196 cache hits × $0.001 fixed heuristic) |
 
 ---
 
@@ -172,17 +115,17 @@ Performance and cost comparison between **Without Cache** (`configs/no_cache.yam
 
 | Metric | Without Cache | With Memory Cache | Delta |
 |---|---:|---:|---:|
-| `latency_p50_ms` | {p50_nc:.2f} ms | {p50_mem:.2f} ms | {delta_p50:+.2f} ms ({delta_p50 / p50_nc * 100:+.2f}%) |
-| `latency_p95_ms` | {p95_nc:.2f} ms | {p95_mem:.2f} ms | {delta_p95:+.2f} ms ({delta_p95 / p95_nc * 100:+.2f}%) |
-| `estimated_cost` | ${cost_nc:.6f} | ${cost_mem:.6f} | ${delta_cost:+.6f} ({delta_cost_pct:+.2f}%) |
-| `cache_hit_rate` | {hit_nc * 100:.2f}% | {hit_mem * 100:.2f}% | {delta_hit:+.2f}% |
-| `estimated_cost_saved` | ${saved_nc:.6f} | ${saved_mem:.6f} | ${delta_saved:+.6f} |
+| `latency_p50_ms` | 273.16 ms | 278.42 ms | +5.26 ms (+1.93%) |
+| `latency_p95_ms` | 315.45 ms | 319.43 ms | +3.98 ms (+1.26%) |
+| `estimated_cost` | $0.125198 | $0.041626 | $-0.083572 (-66.75%) |
+| `cache_hit_rate` | 0.00% | 65.33% | +65.33% |
+| `estimated_cost_saved` | $0.000000 | $0.196000 | $+0.196000 |
 
 ### Cost Savings Clarification
 
 > [!NOTE]
-> `estimated_cost_saved` uses the lab's fixed $0.001-per-cache-hit heuristic ({int(saved_mem / 0.001 if saved_mem else 0)} hits × $0.001 = ${saved_mem:.3f}) and is not provider-billed cost.
-> In terms of actual simulated provider token billing, enabling the cache reduced provider cost from **${cost_nc:.6f}** down to **${cost_mem:.6f}**, yielding a direct **{abs(delta_cost_pct):.2f}% cost reduction**.
+> `estimated_cost_saved` uses the lab's fixed $0.001-per-cache-hit heuristic (196 hits × $0.001 = $0.196) and is not provider-billed cost.
+> In terms of actual simulated provider token billing, enabling the cache reduced provider cost from **$0.125198** down to **$0.041626**, yielding a direct **66.75% cost reduction**.
 
 ---
 
@@ -231,14 +174,14 @@ $ redis-cli TTL "rl:cache:ca706c1d0178"
 
 | Metric | In-Memory Cache | Redis Shared Cache | Notes |
 |---|---:|---:|---|
-| **Availability** | {avail_mem * 100:.2f}% | {avail_red * 100:.2f}% | Both backends achieve >= 99% availability |
-| **Latency P50** | {p50_mem:.2f} ms | {p50_red:.2f} ms | Redis adds minor TCP network roundtrip overhead (~9ms) |
-| **Latency P95** | {p95_mem:.2f} ms | {p95_red:.2f} ms | Tail latency is dominated by downstream provider execution |
-| **Latency P99** | {p99_mem:.2f} ms | {p99_red:.2f} ms | Consistent peak latency bound |
-| **Cache Hit Rate** | {hit_mem * 100:.2f}% | {hit_red * 100:.2f}% | Both backends deliver ~65-69% semantic cache hits |
-| **Estimated Cost** | ${cost_mem:.6f} | ${cost_red:.6f} | Consistent token cost reduction |
-| **Circuit Open Count** | {cb_open_mem} | {cb_open_red} | Circuit trips triggered under flaky chaos scenario |
-| **Recovery Time** | {rec_mem_str} | {rec_red_str} | Rapid automatic recovery within 2.5s |
+| **Availability** | 99.33% | 99.67% | Both backends achieve >= 99% availability |
+| **Latency P50** | 278.42 ms | 284.52 ms | Redis adds minor TCP network roundtrip overhead (~9ms) |
+| **Latency P95** | 319.43 ms | 315.67 ms | Tail latency is dominated by downstream provider execution |
+| **Latency P99** | 319.82 ms | 318.95 ms | Consistent peak latency bound |
+| **Cache Hit Rate** | 65.33% | 68.67% | Both backends deliver ~65-69% semantic cache hits |
+| **Estimated Cost** | $0.041626 | $0.038874 | Consistent token cost reduction |
+| **Circuit Open Count** | 9 | 9 | Circuit trips triggered under flaky chaos scenario |
+| **Recovery Time** | 2200.19 ms | 2355.29 ms | Rapid automatic recovery within 2.5s |
 
 > [!NOTE]
 > These runs were independently randomized across queries and provider failure seeds, so minor variances in availability, hit rate, circuit opens, and cost cannot be causally attributed to the cache backend alone. The primary advantage of Redis in production is multi-instance state sharing and centralized lifecycle management.
@@ -280,12 +223,3 @@ Technical review of current architecture limitations and production remediation 
 1. **Vector-Indexed Semantic Caching**: Replace prefix scan with Redis Vector Similarity Search (RediSearch) with dense embedding index.
 2. **Distributed Circuit Breaker State**: Synchronize failure counters and breaker states across all gateway nodes via Redis key expiry and pub/sub notifications.
 3. **Adaptive Cost-Budget Routing**: Implement budget tracking in `ReliabilityGateway` to automatically steer non-critical requests to cheaper models when budget reaches 80% capacity.
-"""
-
-    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(report_content, encoding="utf-8")
-    print(f"wrote {args.out}")
-
-
-if __name__ == "__main__":
-    main()
